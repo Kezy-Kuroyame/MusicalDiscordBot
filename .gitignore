@@ -1,0 +1,28 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+
+# --- Виртуальное окружение ---
+bot-env/
+
+# --- IDE / редакторы ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS специфичные ---
+.DS_Store
+Thumbs.db
+
+# --- Логи ---
+*.log
+
+# --- Secrets ---
+secrets/
