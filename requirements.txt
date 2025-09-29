@@ -4,3 +4,5 @@ discord.py[voice]
 discord.py
 aiohttp
 python-dotenv
+youtube-search-python
+yt-dlp

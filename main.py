@@ -1,10 +1,16 @@
 import discord
 from discord.ext import commands
 import os
-import config
 import logging
+from dotenv import load_dotenv
 
-from bot_main.static.ids import BIOSWIN_GUILD_ID
+# Загружаем .env
+load_dotenv()
+
+TOKEN = os.getenv("TOKEN")
+PREFIX = os.getenv("PREFIX", "!")
+BIOSWIN_GUILD_ID = int(os.getenv("BIOSWIN_GUILD_ID", 0))
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///db.sqlite3")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +31,7 @@ intents.members = True                                              # on_member_
 intents.presences = True                                            # статус онлайн/оффлайн
 intents.message_content = True                                      # обязательно для чтения сообщений
 
-bot = commands.Bot(command_prefix=config.PREFIX, intents=intents)
+bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 async def load_modules():
     # Загружаем модули
@@ -47,5 +53,8 @@ async def on_ready():
 @bot.event
 async def setup_hook():
     await load_modules()
+    guild = discord.Object(id=BIOSWIN_GUILD_ID)
+    await bot.tree.sync(guild=guild)
 
-bot.run(config.TOKEN)
+
+bot.run(TOKEN)
