@@ -22,10 +22,10 @@ class Player:
             return self.queues[guild_id]
         return deque()
 
-    def add_queue(self, guild_id, audio_url):
+    def add_queue(self, guild_id, track_info):
         if guild_id not in self.queues:
             self.queues[guild_id] = deque()
-        self.queues[guild_id].append(queue)
+        self.queues[guild_id].append(track_info)
 
 
     async def search_youtube(self, query: str):
@@ -40,7 +40,7 @@ class Player:
             return info['entries'][0]
 
     
-    async def play_next(self, interaction: discord.Interaction, query: str):
+    async def play_next(self, interaction: discord.Interaction):
         queue = self.get_queue(interaction.guild.id)
         if not queue:
             return
@@ -51,6 +51,11 @@ class Player:
     async def play_logic(self, interaction: discord.Interaction, query: str):
         self.logger.debug("play_logic")
 
+        voice_client = await joinVoiceChannel(interaction, self.bot)
+
+        if not voice_client:
+            return
+
         track_info = await self.search_youtube(query)
 
         if not track_info:
@@ -59,20 +64,24 @@ class Player:
 
         logging.info(f"track_info: {track_info['title'], track_info['duration'], track_info['thumbnail']}")
         self.add_queue(interaction.guild.id, track_info)
-
-
-
-    async def player(self, interaction: discord.Interaction, query: str):
-        voice_client = await joinVoiceChannel(interaction, self.bot)
-
-        if not voice_client:
+        if voice_client.is_playing():
+            await interaction.followup.send(f"Шмальнул в очередь: **{track_info['title']}**")
             return
+        else:
+            await self.player(interaction, voice_client)
+
+
+    async def player(self, interaction, voice_client):
 
         ffmpeg_opts = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
             'options': '-vn'
         }
-        source = discord.FFmpegPCMAudio(track_info, **ffmpeg_opts)
+        self.logger.debug("player")
+        track_info = self.queues[interaction.guild.id][0]
+        self.logger.info(f"track_info: {track_info}")
+
+        source = discord.FFmpegPCMAudio(track_info['url'], **ffmpeg_opts)
         source = discord.PCMVolumeTransformer(source, volume=0.05)
 
         def after_playing(error):
@@ -83,9 +92,6 @@ class Player:
             fut.add_done_callback(lambda f: f.exception())
 
         self.logger.debug("checking playing")
-        if voice_client.is_playing():
-            await interaction.followup.send(f"Шмальнул в очередь: **{track_info['title']}**")
-            return
 
         voice_client.play(source, after=after_playing)
         self.queues[interaction.guild.id].popleft()
