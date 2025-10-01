@@ -13,3 +13,5 @@ async def joinVoiceChannel(interaction: discord.Interaction, bot):
         return await channel.connect()
     elif voice_client.channel != channel:
         await voice_client.move_to(channel)
+
+    return voice_client

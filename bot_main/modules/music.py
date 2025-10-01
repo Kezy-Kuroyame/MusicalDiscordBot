@@ -15,7 +15,6 @@ class Music(commands.Cog):
         self.bot = bot
         self.logger = logging.getLogger("discord-bot")
         self.player = Player(bot)
-        self.queues: dict[int, deque] = {}
 
 
     # --- Slash команды ---
@@ -30,10 +29,13 @@ class Music(commands.Cog):
 
     @app_commands.command(name="skip", description="Пропустить текущий трек")
     async def skip(self, interaction: discord.Interaction):
-        voice_client = interaction.guild.voice_client
+        self.logger.debug(f"Команда skip")
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
         try:
             if voice_client and voice_client.is_playing():
                 voice_client.stop()
+                queue = self.player.get_queue(interaction.guild.id)
+                queue.popleft()
                 await interaction.response.send_message("Ну и нахуй этот трек реально")
             else:
                 await interaction.response.send_message("Ёбнулся? И так ничё не играет")
@@ -42,13 +44,15 @@ class Music(commands.Cog):
 
     @app_commands.command(name="queue", description="Посмотреть очередь треков")
     async def queue(self, interaction: discord.Interaction):
+        self.logger.debug(f"Команда queue")
         try:
             queue = self.player.get_queue(interaction.guild.id)
+            # self.logger.info(f"Треки в очереди: {queue}")
             if not queue:
                 await interaction.response.send_message("Бля, запамятовал. А стоп ты не добавлял треков в очередь, шиз")
                 return
 
-            msg = "Ну вот такие треки в очереди:\n" + "\n".join([f"{i + 1}. {q}" for i, q in enumerate(queue)])
+            msg = "Ну вот такие треки в очереди:\n" + "\n".join([f"{i + 1}. {q['title']}" for i, q in enumerate(queue)])
             await interaction.response.send_message(msg)
         except Exception as e:
             self.logger.error(f"Команда queue вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")

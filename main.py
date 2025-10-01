@@ -15,7 +15,7 @@ BIOSWIN_GUILD_ID = int(os.getenv("BIOSWIN_GUILD_ID", 0))
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///db.sqlite3")
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.FileHandler("bot_main/bot.log", encoding="utf-8"),   # Запись в файл
@@ -56,7 +56,7 @@ async def on_ready():
 async def setup_hook():
     await load_modules()
     await asyncio.sleep(3)
-    guild = discord.Object(id=BIOSWIN_GUILD_ID)
+    guild = bot.get_guild(BIOSWIN_GUILD_ID)
     logger.info(f"commands: {await bot.tree.sync(guild=guild)}")
 
 
