@@ -1,59 +1,57 @@
-import yt_dlp
+import logging
+import traceback
+
 import discord
+
 from discord import app_commands
 from discord.ext import commands
-from youtubesearchpython import VideosSearch
+from collections import deque
 
-from bot_main.utils.helpers import joinVoiceChannel
+from bot_main.utils.music.player import Player
 
 
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    async def search_youtube(self, query: str):
-        ydl_opts = {'quiet': True, 'extract_flat': True, 'skip_download': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ytsearch:{query}", download=False)
-            if info['entries']:
-                return info['entries'][0]['url']
-        return None
-
-    async def _play_logic(self, interaction: discord.Interaction, query: str):
-        voice_client = await joinVoiceChannel(interaction, self.bot)
-
-        if not voice_client:
-            return
-
-        url = await self.search_youtube(query)
-        if not url:
-            await interaction.response.send("Бля я нихуя не нашёл по твоему запросу")
-            return
-
-        ytdl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'extractaudio': True,
-        }
-
-        ytdl = yt_dlp.YoutubeDL(ytdl_opts)
-        info = ytdl.extract_info(url, download=False)
-        audio_url = info['url']
-
-        ffmpeg_opts = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
-        source = discord.FFmpegPCMAudio(audio_url, **ffmpeg_opts)
-        source = discord.PCMVolumeTransformer(source, volume=0.02)
-
-        if voice_client.is_playing():
-            voice_client.stop()
-        voice_client.play(source)
-
-        await interaction.response.send(f"Сейчас ебашит: {info['title']}")
+        self.logger = logging.getLogger("discord-bot")
+        self.player = Player(bot)
+        self.queues: dict[int, deque] = {}
 
 
+    # --- Slash команды ---
     @app_commands.command(name="play", description="Включить трек с ютуба")
     async def play(self, interaction: discord.Interaction, *, query: str):
-        await self._play_logic(interaction, query)
+        self.logger.debug(f"play command with query: {query}")
+        try:
+            await interaction.response.defer(thinking=True)
+            await self.player.play_logic(interaction, query=query)
+        except Exception as e:
+            self.logger.error(f"Команда play вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
+
+    @app_commands.command(name="skip", description="Пропустить текущий трек")
+    async def skip(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+        try:
+            if voice_client and voice_client.is_playing():
+                voice_client.stop()
+                await interaction.response.send_message("Ну и нахуй этот трек реально")
+            else:
+                await interaction.response.send_message("Ёбнулся? И так ничё не играет")
+        except Exception as e:
+            self.logger.error(f"Команда skip вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
+
+    @app_commands.command(name="queue", description="Посмотреть очередь треков")
+    async def queue(self, interaction: discord.Interaction):
+        try:
+            queue = self.player.get_queue(interaction.guild.id)
+            if not queue:
+                await interaction.response.send_message("Бля, запамятовал. А стоп ты не добавлял треков в очередь, шиз")
+                return
+
+            msg = "Ну вот такие треки в очереди:\n" + "\n".join([f"{i + 1}. {q}" for i, q in enumerate(queue)])
+            await interaction.response.send_message(msg)
+        except Exception as e:
+            self.logger.error(f"Команда queue вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
 
 
 async def setup(bot):

@@ -3,7 +3,7 @@ import discord
 
 async def joinVoiceChannel(interaction: discord.Interaction, bot):
     if not interaction.user.voice:
-        await interaction.response.send("Братанчик, ты должен быть в голосовом канале")
+        await interaction.response.send_message("Братанчик, ты должен быть в голосовом канале")
         return
 
     channel = interaction.user.voice.channel

@@ -1,3 +1,5 @@
+import asyncio
+
 import discord
 from discord.ext import commands
 import os
@@ -53,8 +55,9 @@ async def on_ready():
 @bot.event
 async def setup_hook():
     await load_modules()
+    await asyncio.sleep(3)
     guild = discord.Object(id=BIOSWIN_GUILD_ID)
-    await bot.tree.sync(guild=guild)
+    logger.info(f"commands: {await bot.tree.sync(guild=guild)}")
 
 
 bot.run(TOKEN)
