@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import queue
+import time
 from collections import deque
 from symtable import Class
 
@@ -14,8 +15,23 @@ class Player:
         self.bot = bot
         self.queues: dict[int, deque] = {}
         self.logger = logging.getLogger("discord-bot")
+        self.ydl_opts = {
+            'quiet': True,
+            "noplaylist": True,
+            'skip_download': True,
+            'format': 'm4a/bestaudio/best',
+            "writesubtitles": False,  # не загружать субтитры
+            "writeautomaticsub": False,
+            "subtitleslangs": [],
+        }
+        self.start_time = None
+        self.ydl = yt_dlp.YoutubeDL(self.ydl_opts)
+        self.ffmpeg_opts = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn'
+        }
 
-    
+
     def get_queue(self, guild_id):
         self.logger.debug(f"Getting queue for guild {guild_id}")
         if guild_id in self.queues:
@@ -30,14 +46,14 @@ class Player:
 
     async def search_youtube(self, query: str):
         self.logger.debug("search_youtube")
-        ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-            'format': 'bestaudio/best'
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ytsearch:{query}", download=False)
-            return info['entries'][0]
+
+        def _extract():
+            info = self.ydl.extract_info(f"ytsearch:{query} type:video", download=False)
+            entry = info["entries"][0]
+            # возвращаем только нужные поля
+            return {k: entry.get(k) for k in ["title", "webpage_url", "url", "duration", "thumbnail"]}
+
+        return await asyncio.to_thread(_extract)
 
     
     async def play_next(self, interaction: discord.Interaction):
@@ -45,7 +61,7 @@ class Player:
         if not queue:
             return
         queue = queue.popleft()
-        await self.play_logic(interaction, queue)
+        await self.player(interaction, queue)
 
 
     async def play_logic(self, interaction: discord.Interaction, query: str):
@@ -62,7 +78,7 @@ class Player:
             await interaction.followup.send("Бля я нихуя не нашёл по твоему запросу")
             return
 
-        logging.info(f"track_info: {track_info['title'], track_info['duration'], track_info['thumbnail']}")
+        # logging.info(f"track_info: {track_info['title'], track_info['duration'], track_info['thumbnail']}")
         self.add_queue(interaction.guild.id, track_info)
         if voice_client.is_playing():
             await interaction.followup.send(f"Шмальнул в очередь: **{track_info['title']}**")
@@ -73,26 +89,26 @@ class Player:
 
     async def player(self, interaction, voice_client):
 
-        ffmpeg_opts = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn'
-        }
         self.logger.debug("player")
         track_info = self.queues[interaction.guild.id][0]
         self.logger.info(f"track_info: {track_info}")
 
-        source = discord.FFmpegPCMAudio(track_info['url'], **ffmpeg_opts)
+        source = discord.FFmpegPCMAudio(track_info['url'], **self.ffmpeg_opts)
         source = discord.PCMVolumeTransformer(source, volume=0.05)
 
         def after_playing(error):
+            self.queues[interaction.guild.id].popleft()
             if error:
                 self.logger.error(f"Ошибка при попытке проиграть следующий трек: {error}")
-            coroutine = self.play_next(interaction, voice_client)
-            fut = asyncio.run_coroutine_threadsafe(coroutine, self.bot.loop)
-            fut.add_done_callback(lambda f: f.exception())
+            if interaction.guild.id in self.queues and self.queues[interaction.guild.id]:
+                coroutine = self.play_next(interaction)
+                fut = asyncio.run_coroutine_threadsafe(coroutine, self.bot.loop)
+                fut.add_done_callback(lambda f: f.exception())
+            else:
+                return
 
         self.logger.debug("checking playing")
-
+        self.start_time = time.time()
         voice_client.play(source, after=after_playing)
-        self.queues[interaction.guild.id].popleft()
+
         await interaction.followup.send(f"Сейчас ебашит: [{track_info['title']}]({track_info['webpage_url']})")

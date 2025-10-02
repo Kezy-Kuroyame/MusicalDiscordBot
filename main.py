@@ -55,7 +55,6 @@ async def on_ready():
 @bot.event
 async def setup_hook():
     await load_modules()
-    await asyncio.sleep(3)
     guild = bot.get_guild(BIOSWIN_GUILD_ID)
     logger.info(f"commands: {await bot.tree.sync(guild=guild)}")
 

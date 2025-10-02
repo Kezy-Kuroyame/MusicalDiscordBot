@@ -8,6 +8,7 @@ from discord.ext import commands
 from collections import deque
 
 from bot_main.utils.music.player import Player
+from bot_main.utils.music.queue_embed import create_queue_embed
 
 
 class Music(commands.Cog):
@@ -34,9 +35,9 @@ class Music(commands.Cog):
         try:
             if voice_client and voice_client.is_playing():
                 voice_client.stop()
-                queue = self.player.get_queue(interaction.guild.id)
-                queue.popleft()
                 await interaction.response.send_message("Ну и нахуй этот трек реально")
+
+                await self.player.player(interaction, voice_client)
             else:
                 await interaction.response.send_message("Ёбнулся? И так ничё не играет")
         except Exception as e:
@@ -47,13 +48,13 @@ class Music(commands.Cog):
         self.logger.debug(f"Команда queue")
         try:
             queue = self.player.get_queue(interaction.guild.id)
-            # self.logger.info(f"Треки в очереди: {queue}")
+            self.logger.info(f"Треки в очереди: {queue}")
             if not queue:
                 await interaction.response.send_message("Бля, запамятовал. А стоп ты не добавлял треков в очередь, шиз")
                 return
 
-            msg = "Ну вот такие треки в очереди:\n" + "\n".join([f"{i + 1}. {q['title']}" for i, q in enumerate(queue)])
-            await interaction.response.send_message(msg)
+            embed = create_queue_embed(queue, self.player)
+            await interaction.response.send_message(embed=embed)
         except Exception as e:
             self.logger.error(f"Команда queue вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
 
