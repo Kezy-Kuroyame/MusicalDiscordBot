@@ -7,8 +7,9 @@ from symtable import Class
 
 import discord
 import yt_dlp
+from discord import app_commands
 
-from bot_main.utils.music.helpers import join_voice_channel
+from bot_main.utils.music.helpers import join_voice_channel, formated_duration
 
 
 class Player:
@@ -16,8 +17,14 @@ class Player:
         self.bot = bot
         self.queues: dict[int, deque] = {}
         self.logger = logging.getLogger("discord-bot")
+        self.ydl_opts_autocomplete = {
+            "quiet": True,
+            "extract_flat": True,
+            "skip_download": True,
+        }
         self.ydl_opts = {
             'quiet': True,
+            "default_search": "ytsearch5",
             "noplaylist": True,
             'skip_download': True,
             'format': 'm4a/bestaudio/best',
@@ -26,7 +33,15 @@ class Player:
         }
         self.start_time = None
         self.ydl = yt_dlp.YoutubeDL(self.ydl_opts)
+        self.cache = {}
+        self.cache_ttl = 10  # кэш
 
+        self._search_task = None   # фоновая задача поиска
+
+
+    # ------------------------------
+    # Очередь
+    # ------------------------------
 
     def get_queue(self, guild_id):
         self.logger.debug(f"Getting queue for guild {guild_id}")
@@ -40,18 +55,86 @@ class Player:
         self.queues[guild_id].append(track_info)
 
 
-    async def search_youtube(self, query: str):
-        self.logger.debug("search_youtube")
+    # ------------------------------
+    # Быстрый поиск для выбора трека
+    # ------------------------------
+
+    async def _search_youtube_async(self, query: str):
+        """Фоновый поиск для подсказок"""
 
         def _extract():
-            info = self.ydl.extract_info(f"ytsearch:{query}", download=False)
-            entry = info["entries"][0]
-            # возвращаем только нужные поля
-            return {k: entry.get(k) for k in ["title", "webpage_url", "url", "duration", "thumbnail"]}
+            ydl = yt_dlp.YoutubeDL(self.ydl_opts_autocomplete)
+            info = ydl.extract_info(f"ytsearch5:{query}", download=False)
+            entries = info.get("entries", [])
+            logging.info(f"entries: {entries[:5]}")
 
-        return await asyncio.to_thread(_extract)
+            return entries[:5]
 
-    
+        results = await asyncio.to_thread(_extract)
+        self._last_results = results
+        self._last_query = query
+        return results
+
+
+    async def get_autocomplete(self, interaction: discord.Interaction, query: str):
+        """Запускает фоновый поиск"""
+        self.logger.debug("get_autocomplete")
+
+        embed = discord.Embed(title=f"Поиск: {query}", description="Идёт поиск...", color=discord.Color.green())
+        message = await interaction.followup.send(embed=embed)
+
+        results = await self._search_youtube_async(query)
+
+        # Создаём Embed с результатами
+        embed = discord.Embed(title=f"Результаты поиска: {query}", color=discord.Color.green())
+        for i, track in enumerate(results, 1):
+            logging.info(f"[{i}/{len(results)}] {track}")
+            embed.add_field(
+                name=f"",
+                value=(
+                    f"{i}. **[{track['title']}]({track['url']})** \n"
+                    f"\t**Длительность:** {formated_duration(track['duration'])}\n"
+                    f"\t**Канал:** {track['channel']}"
+                ),
+                inline=False)
+
+        # Редактируем сообщение
+        await message.edit(embed=embed)
+
+
+    # ------------------------------
+    # Основной поиск для play
+    # ------------------------------
+
+    async def search_youtube(self, query: str):
+        self.logger.debug("search_youtube")
+        now = time.time()
+        if query in self.cache and now - self.cache[query]["time"] < self.cache_ttl:
+            return self.cache[query]["results"]
+
+        def _extract():
+            info = self.ydl.extract_info(query, download=False)
+            entries = info.get("entries", [])
+            return [
+                {
+                    "title": e.get("title"),
+                    "webpage_url": e.get("webpage_url"),
+                    "url": e.get("url"),
+                    "duration": e.get("duration"),
+                    "thumbnail": e.get("thumbnail")
+                }
+                for e in entries[:5]
+            ]
+
+        results = await asyncio.to_thread(_extract)
+        self.cache[query] = {"time": now, "results": results}
+        return results
+
+
+    # ------------------------------
+    # Логика воспроизведения
+    # ------------------------------
+
     async def play_next(self, interaction: discord.Interaction, voice_client):
         logging.debug("play_next")
         if not self.get_queue(interaction.guild.id):

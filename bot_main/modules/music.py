@@ -8,7 +8,7 @@ from discord.ext import commands
 from collections import deque
 
 from bot_main.utils.music.player import Player
-from bot_main.utils.music.queue_embed import create_queue_embed
+from bot_main.utils.music.helpers import create_queue_embed
 
 
 class Music(commands.Cog):
@@ -18,13 +18,16 @@ class Music(commands.Cog):
         self.player = Player(bot)
 
 
+    # ------------------------------
     # --- Slash команды ---
+    # ------------------------------
+
     @app_commands.command(name="play", description="Включить трек с ютуба")
     async def play(self, interaction: discord.Interaction, *, query: str):
         self.logger.debug(f"play command with query: {query}")
         try:
             await interaction.response.defer(thinking=True)
-            await self.player.play_logic(interaction, query=query)
+            await self.player.get_autocomplete(interaction, query=query)
         except Exception as e:
             self.logger.error(f"Команда play вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
 

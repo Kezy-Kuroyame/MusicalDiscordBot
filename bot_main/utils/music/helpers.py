@@ -63,22 +63,12 @@ def create_queue_embed(queue, player):
     return embed
 
 
-def create_search_embed(tracks):
+def formated_duration(seconds) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
 
-    embed = Embed(
-            title="Результаты поиска",
-            description="Выбери нужный трек",
-            colour=Colour.green()
-        )
-
-    for i, track in enumerate(tracks):
-        title = track["title"]
-        if len(title) > 50:
-            title = title[:47] + "..."
-        if i != 0:
-            embed.add_field(
-                name=f"{i + 1}. [{title}]({track['webpage_url']})",
-                value=f"Длительность: {track.get('duration', '??')} сек",
-                inline=False
-            )
-    return embed
+    if h:
+        return f"{h:02}:{m:02}:{s:02}"
+    else:
+        return f"{m}:{s:02}"
