@@ -4,6 +4,22 @@ import discord
 from discord import Embed, Colour
 
 
+async def join_voice_channel(interaction: discord.Interaction, bot):
+    if not interaction.user.voice:
+        await interaction.response.send_message("Братанчик, ты должен быть в голосовом канале")
+        return
+
+    channel = interaction.user.voice.channel
+    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+
+    if not voice_client:
+        return await channel.connect()
+    elif voice_client.channel != channel:
+        await voice_client.move_to(channel)
+
+    return voice_client
+
+
 def format_progress_bar(current: int, total: int, length: int = 30) -> str:
     if total == 0:
         return "[------------------------------]"
@@ -35,6 +51,27 @@ def create_queue_embed(queue, player):
     )
 
     for i, track in enumerate(queue):
+        title = track["title"]
+        if len(title) > 50:
+            title = title[:47] + "..."
+        if i != 0:
+            embed.add_field(
+                name=f"{i + 1}. [{title}]({track['webpage_url']})",
+                value=f"Длительность: {track.get('duration', '??')} сек",
+                inline=False
+            )
+    return embed
+
+
+def create_search_embed(tracks):
+
+    embed = Embed(
+            title="Результаты поиска",
+            description="Выбери нужный трек",
+            colour=Colour.green()
+        )
+
+    for i, track in enumerate(tracks):
         title = track["title"]
         if len(title) > 50:
             title = title[:47] + "..."
