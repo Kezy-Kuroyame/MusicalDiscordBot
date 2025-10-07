@@ -26,7 +26,7 @@ class Music(commands.Cog):
     async def play(self, interaction: discord.Interaction, *, query: str):
         self.logger.debug(f"play command with query: {query}")
         try:
-            await interaction.response.defer(thinking=True)
+            # await interaction.response.defer(thinking=True)
             await self.player.get_autocomplete(interaction, query=query)
         except Exception as e:
             self.logger.error(f"Команда play вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")

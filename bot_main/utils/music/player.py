@@ -9,6 +9,7 @@ import discord
 import yt_dlp
 from discord import app_commands
 
+from bot_main.utils.music import track_select_view
 from bot_main.utils.music.helpers import join_voice_channel, formated_duration
 
 
@@ -33,8 +34,7 @@ class Player:
         }
         self.start_time = None
         self.ydl = yt_dlp.YoutubeDL(self.ydl_opts)
-        self.cache = {}
-        self.cache_ttl = 10  # кэш
+        self.ydl_fast = yt_dlp.YoutubeDL(self.ydl_opts_autocomplete)
 
         self._search_task = None   # фоновая задача поиска
 
@@ -63,8 +63,7 @@ class Player:
         """Фоновый поиск для подсказок"""
 
         def _extract():
-            ydl = yt_dlp.YoutubeDL(self.ydl_opts_autocomplete)
-            info = ydl.extract_info(f"ytsearch5:{query}", download=False)
+            info = self.ydl_fast.extract_info(f"ytsearch5:{query}", download=False)
             entries = info.get("entries", [])
             logging.info(f"entries: {entries[:5]}")
 
@@ -80,9 +79,6 @@ class Player:
         """Запускает фоновый поиск"""
         self.logger.debug("get_autocomplete")
 
-        embed = discord.Embed(title=f"Поиск: {query}", description="Идёт поиск...", color=discord.Color.green())
-        message = await interaction.followup.send(embed=embed)
-
         results = await self._search_youtube_async(query)
 
         # Создаём Embed с результатами
@@ -92,14 +88,14 @@ class Player:
             embed.add_field(
                 name=f"",
                 value=(
-                    f"{i}. **[{track['title']}]({track['url']})** \n"
-                    f"\t**Длительность:** {formated_duration(track['duration'])}\n"
-                    f"\t**Канал:** {track['channel']}"
+                    f"{i}. **[{track['title']}]({track['url']})** - ({formated_duration(track['duration'])})"
                 ),
                 inline=False)
 
+        view = track_select_view.TrackSelectView(results, self)
+
         # Редактируем сообщение
-        await message.edit(embed=embed)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
     # ------------------------------
@@ -108,26 +104,16 @@ class Player:
 
     async def search_youtube(self, query: str):
         self.logger.debug("search_youtube")
-        now = time.time()
-        if query in self.cache and now - self.cache[query]["time"] < self.cache_ttl:
-            return self.cache[query]["results"]
+        self.logger.info(f"Searching youtube with query: {query}")
 
         def _extract():
-            info = self.ydl.extract_info(query, download=False)
+            info = self.ydl.extract_info(f"ytsearch1:{query}", download=False)
             entries = info.get("entries", [])
-            return [
-                {
-                    "title": e.get("title"),
-                    "webpage_url": e.get("webpage_url"),
-                    "url": e.get("url"),
-                    "duration": e.get("duration"),
-                    "thumbnail": e.get("thumbnail")
-                }
-                for e in entries[:5]
-            ]
+            logging.info(f"entries: {entries[0]}")
+            return entries[0]
+
 
         results = await asyncio.to_thread(_extract)
-        self.cache[query] = {"time": now, "results": results}
         return results
 
 
@@ -162,6 +148,7 @@ class Player:
             await interaction.followup.send(f"Шмальнул в очередь: **{track_info['title']}**")
             return
         else:
+            await interaction.followup.send(f"dasdas")
             await self.player(interaction, voice_client)
 
 
