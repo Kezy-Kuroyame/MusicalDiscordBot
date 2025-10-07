@@ -8,7 +8,7 @@ class TrackSelectView(View):
     def __init__(self, tracks, player):
         super().__init__(timeout=60.0)  # Таймаут для взаимодействия
         self.player = player
-        self.tracks = tracks
+        self.tracks = tracks 
         self.logger = logging.getLogger("discord-bot")
 
         # Добавляем кнопки для каждого трека
