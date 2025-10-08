@@ -39,8 +39,7 @@ class Music(commands.Cog):
             if voice_client and voice_client.is_playing():
                 voice_client.stop()
                 await interaction.response.send_message("Ну и нахуй этот трек реально")
-
-                await self.player.player(interaction, voice_client)
+                await self.player.play_next(interaction, voice_client)
             else:
                 await interaction.response.send_message("Ёбнулся? И так ничё не играет")
         except Exception as e:

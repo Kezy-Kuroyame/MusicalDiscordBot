@@ -14,13 +14,27 @@ PREFIX = os.getenv("PREFIX", "!")
 BIOSWIN_GUILD_ID = int(os.getenv("BIOSWIN_GUILD_ID", 0))
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///db.sqlite3")
 
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Ротация логов: максимум 10 МБ, храним 5 предыдущих файлов
+file_handler = RotatingFileHandler(
+    filename="bot_main/bot.log",
+    mode="a",
+    maxBytes=100 * 1024 * 1024,  # 10 МБ
+    backupCount=2,              # хранить 5 старых логов
+    encoding="utf-8",
+    delay=False
+)
+
+# Потоковый вывод в консоль
+stream_handler = logging.StreamHandler()
+
+# Базовая конфигурация
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler("bot_main/bot.log", encoding="utf-8"),   # Запись в файл
-        logging.StreamHandler()                                     # Печать в консоль
-    ]
+    handlers=[file_handler, stream_handler]
 )
 logger = logging.getLogger("discord-bot")
 discord_logger = logging.getLogger("discord")

@@ -1,12 +1,13 @@
 import logging
 
 import discord
+from discord.types import embed
 from discord.ui import View, Button
 
 
 class TrackSelectView(View):
     def __init__(self, tracks, player):
-        super().__init__(timeout=60.0)  # Таймаут для взаимодействия
+        super().__init__()
         self.player = player
         self.tracks = tracks 
         self.logger = logging.getLogger("discord-bot")
@@ -20,8 +21,8 @@ class TrackSelectView(View):
     def create_callback(self, track):
         async def callback(interaction: discord.Interaction):
             self.logger.debug(f"callback on track {track['title']}")
-            await interaction.message.delete()
             self.stop()
-            await self.player.play_logic(interaction, track['url'])
+            await interaction.message.delete()
+            await self.player.play_logic(interaction=interaction, query=track['url'], track=track)
 
         return callback
