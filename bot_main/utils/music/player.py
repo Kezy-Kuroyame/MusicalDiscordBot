@@ -29,7 +29,7 @@ class Player:
             "default_search": "ytsearch5",
             "noplaylist": True,
             'skip_download': True,
-            'format': 'm4a/bestaudio/best',
+            'format': 'bestaudio/best',
             "writesubtitles": False,  # не загружать субтитры
             "writeautomaticsub": False,
         }

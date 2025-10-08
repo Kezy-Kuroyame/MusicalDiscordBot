@@ -20,12 +20,12 @@ async def join_voice_channel(interaction: discord.Interaction, bot):
     return voice_client
 
 
-def format_progress_bar(current: int, total: int, length: int = 30) -> str:
+def format_progress_bar(current: int, total: int, length: int = 50) -> str:
     if total == 0:
         return "[------------------------------]"
 
     filled_length = int(length * current // total)
-    bar = '*' * filled_length + '-' * (length - filled_length)
+    bar = '•' * filled_length + '-' * (length - filled_length)
     return f"[{bar}]"
 
 
@@ -36,8 +36,7 @@ def create_queue_embed(queue, player):
         return int(time.time() - start_time)
 
     embed = Embed(
-            title="Поставка шмали",
-            description="Сейчас в очереди:",
+            title="**Поставка шмали**",
             colour=Colour.green()
         )
 
@@ -45,7 +44,7 @@ def create_queue_embed(queue, player):
     embed.add_field(
         name=f"Сейчас играет:",
         value=f"[{queue[0]['title']}]({queue[0]['webpage_url']})\n" +
-              "Длительность: {_current_position(player.start_time)}/{queue[0].get('duration', '??')} сек\n" +
+              f"Длительность: {formated_duration(_current_position(player.start_time))}/{formated_duration(queue[0].get('duration', '??'))}\n" +
               f"{format_progress_bar(_current_position(player.start_time), queue[0]['duration'])}",
         inline=False
     )
@@ -56,8 +55,8 @@ def create_queue_embed(queue, player):
             title = title[:47] + "..."
         if i != 0:
             embed.add_field(
-                name=f"{i + 1}. [{title}]({track['webpage_url']})",
-                value=f"Длительность: {track.get('duration', '??')} сек",
+                name=f"",
+                value=f"{i + 1}. [{title}]({track['webpage_url']})\nДлительность: {formated_duration(track.get('duration', '??'))}",
                 inline=False
             )
     return embed
