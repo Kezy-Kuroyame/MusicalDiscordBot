@@ -32,13 +32,15 @@ class Player:
             'format': 'bestaudio/best',
             "writesubtitles": False,  # не загружать субтитры
             "writeautomaticsub": False,
+            'extact_flat': True
         }
         self.start_time = None
         self.ydl = yt_dlp.YoutubeDL(self.ydl_opts)
         self.ydl_fast = yt_dlp.YoutubeDL(self.ydl_opts_autocomplete)
-
-        self._search_task = None   # фоновая задача поиска
-
+        self.is_loop = False
+        self.is_repeat = False
+        self.count_played = 0
+        self.repeated_track = None
 
     # ------------------------------
     # Очередь
@@ -116,16 +118,15 @@ class Player:
         self.logger.info(f"Searching youtube with query: {query}")
 
         def _extract():
-            info = self.ydl.extract_info(f"ytsearch1:{query}", download=False)
-            entries = info.get("entries", [])[0]
+            info = self.ydl.extract_info(f"{query}", download=False)
+            self.logger.info(info)
             return {
-                    'title': entries.get('title'),
-                    'url': entries.get('url'),
-                    'duration': entries.get('duration'),
-                    'webpage_url': entries.get('webpage_url'),
-                    'thumbnail': entries.get('thumbnail')
+                "title": info.get("title"),
+                "url": info.get("url"),
+                "webpage_url": info.get("webpage_url"),
+                "duration": info.get("duration"),
+                "thumbnail": info.get("thumbnail"),
             }
-
 
         results = await asyncio.to_thread(_extract)
         return results
@@ -173,7 +174,8 @@ class Player:
         track_info = self.queues[interaction.guild.id][0]
         self.logger.info(f"track_info: {track_info}")
 
-        await interaction.channel.send(f"Сейчас ебашит: [{track_info['title']}]({track_info['webpage_url']})")
+        if self.count_played == 0:
+            await interaction.channel.send(f"Сейчас ебашит: [{track_info['title']}]({track_info['webpage_url']})")
 
         ffmpeg_opts = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -189,7 +191,10 @@ class Player:
                 voice_client.stop()
             if interaction.guild.id in self.queues and self.queues[interaction.guild.id] and track_info == self.queues[interaction.guild.id][0]:
                 self.logger.debug("Удаление трека из очереди")
-                self.queues[interaction.guild.id].popleft()
+                if self.is_loop and not self.is_repeat:
+                    self.queues[interaction.guild.id].append(self.queues[interaction.guild.id][0])
+                if not self.is_repeat:
+                    self.queues[interaction.guild.id].popleft()
             if error:
                 self.logger.error(f"Ошибка при попытке проиграть следующий трек: {error}")
             self.logger.info(f"Нынешняя очередь: {self.queues[interaction.guild.id]}")
@@ -203,5 +208,12 @@ class Player:
 
         self.logger.debug("checking playing")
         self.start_time = time.time()
+
+        self.count_played += 1
+        if self.repeated_track != self.queues.get(interaction.guild.id)[0]:
+            self.count_played = 0
+
+        self.repeated_track = track_info
+
         self.logger.info(f"start_time: {self.start_time}, source: {source}")
         voice_client.play(source, after=after_playing)

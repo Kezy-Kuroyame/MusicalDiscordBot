@@ -59,6 +59,34 @@ class Music(commands.Cog):
         except Exception as e:
             self.logger.error(f"Команда queue вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
 
+    @app_commands.command(name="loop", description="Повтор всех добавленных треков")
+    async def loop(self, interaction: discord.Interaction):
+        self.logger.debug(f"Команда loop")
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
+        try:
+            if not self.player.is_loop:
+                self.player.is_loop = True
+                await interaction.response.send_message("А ты шаришь за loop у")
+            else:
+                self.player.is_loop = False
+                await interaction.response.send_message("Бля, больше не шарю за loop у")
+
+        except Exception as e:
+            self.logger.error(f"Команда skip вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
+
+    @app_commands.command(name="repeat", description="Повтор одного трека")
+    async def repeat(self, interaction: discord.Interaction):
+        self.logger.debug(f"Команда repeat")
+        try:
+            if not self.player.is_repeat:
+                self.player.is_repeat = True
+                await interaction.response.send_message("Ебанул репитика")
+            else:
+                self.player.is_repeat = False
+                await interaction.response.send_message("Вырубил репитик")
+        except Exception as e:
+            self.logger.error(f"Команда skip вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
+
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
