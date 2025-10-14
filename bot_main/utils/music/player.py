@@ -87,7 +87,11 @@ class Player:
     async def get_autocomplete(self, interaction: discord.Interaction, query: str):
         """Запускает фоновый поиск"""
         self.logger.debug("get_autocomplete")
-
+        if 'https://www.youtube.com/' in query:
+            await interaction.response.defer(thinking=True)
+            await self.play_logic(interaction, query)
+            return
+            
         try:
             results = await self._search_youtube_async(query)
 

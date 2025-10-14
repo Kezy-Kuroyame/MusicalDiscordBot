@@ -6,3 +6,4 @@ aiohttp
 python-dotenv
 youtube-search-python
 yt-dlp
+requests
