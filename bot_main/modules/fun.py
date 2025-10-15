@@ -44,9 +44,10 @@ class Fun(commands.Cog):
         """Запускается при старте бота"""
         self.logger.debug("Start Rainbow role")
         await self.bot.wait_until_ready()
+
         guild = self.bot.get_guild(GUILD_ID)
         role = guild.get_role(ROLE_ID)
-        self.colorize.rainbow_role.start(role = role)
+        await self.colorize.rainbow_role(role)
 
 
 async def setup(bot):

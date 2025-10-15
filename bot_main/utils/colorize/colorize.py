@@ -1,4 +1,7 @@
 import logging
+from itertools import cycle
+
+import aiohttp
 import discord
 from discord.ext import tasks
 import asyncio
@@ -7,54 +10,53 @@ import os
 
 from dotenv import load_dotenv
 
+load_dotenv()
+ROLE_ID = int(os.getenv('ROLE_ID'))
+GUILD_ID = int(os.getenv('BIOSWIN_GUILD_ID'))
+TOKEN = os.getenv('TOKEN')
 
 
-def generate_gradient_colors(start_hex="#19d2eb", end_hex="#eb3219", steps=100):
-    """Создаёт плавный градиент между двумя цветами (туда и обратно)"""
-    # Конвертация HEX → RGB
-    def hex_to_rgb(hex_color):
-        hex_color = hex_color.lstrip("#")
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-
-    start_rgb = hex_to_rgb(start_hex)
-    end_rgb = hex_to_rgb(end_hex)
-
-    colors = []
-
-    # Прямой переход start → end
-    for i in range(steps):
-        t = i / (steps - 1)
-        r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * t)
-        g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * t)
-        b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * t)
-        colors.append(discord.Color.from_rgb(r, g, b))
-
-    # Обратный переход end → start
-    for i in range(steps):
-        t = i / (steps - 1)
-        r = int(end_rgb[0] + (start_rgb[0] - end_rgb[0]) * t)
-        g = int(end_rgb[1] + (start_rgb[1] - end_rgb[1]) * t)
-        b = int(end_rgb[2] + (start_rgb[2] - end_rgb[2]) * t)
-        colors.append(discord.Color.from_rgb(r, g, b))
-
-    return colors
-
-RAINBOW_COLORS = generate_gradient_colors(steps=2)
+RAINBOW_COLORS = [
+    discord.Color.from_rgb(30, 227, 155),
+    discord.Color.from_rgb(30, 227, 178),
+    discord.Color.from_rgb(30, 227, 194),
+    discord.Color.from_rgb(30, 220, 227),
+    discord.Color.from_rgb(30, 158, 227),
+    discord.Color.from_rgb(30, 220, 227),
+    discord.Color.from_rgb(30, 227, 194),
+    discord.Color.from_rgb(30, 227, 178),
+    discord.Color.from_rgb(30, 227, 155),
+]
 
 
 class Colorize:
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger('discord-bot')
+        self.color_cycle = cycle(RAINBOW_COLORS)
+
+    async def change_role_color(self, color):
+        url = f"https://discord.com/api/v10/guilds/{GUILD_ID}/roles/{ROLE_ID}"
+        headers = {"Authorization": f"Bot {TOKEN}", "Content-Type": "application/json"}
+        json_data = {"color": color.value}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.patch(url, headers=headers, json=json_data) as resp:
+                if resp.status == 429:  # rate limit
+                    data = await resp.json()
+                    retry_after = data.get("retry_after", 5)
+                    self.logger.info(f"Rate limit! Жду {retry_after} сек...")
+                    await asyncio.sleep(retry_after)
+                elif resp.status in (200, 204):
+                    self.logger.info(f"Цвет роли изменён: {color.value:#06x}")
+                else:
+                    self.logger.warning(f"Ошибка {resp.status}: {await resp.text()}")
 
 
-    @tasks.loop(seconds=1)  # безопасный интервал
-    async def rainbow_role(self, role: discord.Role):
-        """Меняет цвет роли каждые 15 секунд"""
-        for color in RAINBOW_COLORS:
-            try:
-                await role.edit(color=color, reason="Gradient rainbow effect")
-                await asyncio.sleep(5)
-            except Exception as e:
-                self.logger.error("Rate limit или ошибка:", e)
-                await asyncio.sleep(30)
+    async def rainbow_role(self, role):
+        while True:
+            color = next(self.color_cycle)
+            await self.change_role_color(color)
+            await asyncio.sleep(70)
+
+
