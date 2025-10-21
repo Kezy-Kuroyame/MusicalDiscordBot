@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import queue
 import traceback
 import time
@@ -9,10 +10,13 @@ from symtable import Class
 import discord
 import yt_dlp
 from discord import app_commands
+from dotenv import load_dotenv
 
 from bot_main.utils.music import track_select_view
 from bot_main.utils.music.helpers import join_voice_channel, formated_duration
 
+load_dotenv()
+MUSIC_ROLE_ID = int(os.getenv('MUSIC_ROLE_ID'))
 
 class Player:
     def __init__(self, bot):
@@ -40,6 +44,8 @@ class Player:
         self.is_repeat = False
         self.count_played = 0
         self.repeated_track = None
+        self.volume = 0.05
+        self.current_source = None
 
     # ------------------------------
     # Очередь
@@ -55,6 +61,26 @@ class Player:
         if guild_id not in self.queues:
             self.queues[guild_id] = deque()
         self.queues[guild_id].append(track_info)
+
+    def set_volume(self, interaction: discord.Interaction, level: int):
+        #Изменяет громкость если это позволяет роль пользователя
+        has_role = any(role.id == MUSIC_ROLE_ID for role in interaction.user.roles)
+        if not has_role:
+            self.logger.warning(
+                f"{interaction.user} попытался изменить громкость без роли Bioswin")
+            raise PermissionError("Недостаточно прав для изменения громкости")
+        # Проверяем диапазон значений
+        if not 0 <= level <= 100:
+            raise ValueError("Громкость должна быть от 0 до 100")
+
+        self.volume = level/100
+        self.logger.info(
+            f"Громкость изменена пользователем {interaction.user}. Громкость: {level}%")
+
+        # обновляем громкость проигрываемого трека, если он есть
+        if hasattr(self, "current_source") and self.current_source:
+            self.current_source.volume = self.volume
+            self.logger.debug(f"Текущий трек громкость изменена на {self.volume}")
 
 
     # ------------------------------
@@ -186,7 +212,9 @@ class Player:
         }
 
         source = discord.FFmpegPCMAudio(track_info['url'], **ffmpeg_opts)
-        source = discord.PCMVolumeTransformer(source, volume=0.05)
+        #source = discord.PCMVolumeTransformer(source, volume=0.05)
+        source = discord.PCMVolumeTransformer(source, volume=self.volume)
+        self.current_source = source  # сохраняем источник, чтобы потом менять громкость
 
         def after_playing(error):
             self.logger.debug("after_playing")

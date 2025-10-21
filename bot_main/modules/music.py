@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 from collections import deque
 
+
 from bot_main.utils.music.player import Player
 from bot_main.utils.music.helpers import create_queue_embed
 
@@ -86,6 +87,25 @@ class Music(commands.Cog):
                 await interaction.response.send_message("Вырубил репитик")
         except Exception as e:
             self.logger.error(f"Команда skip вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
+
+    @app_commands.command(name="volume", description="Изменить громкость (0-100%) [стандарт: 5]")
+    async def volume(self, interaction: discord.Interaction, level: int):
+        self.logger.debug(f"Команда volume, уровень: {level}%")
+        try:
+            self.player.set_volume(interaction, level)
+            await interaction.response.send_message(
+                f"🔊 Громкость установлена на **{level}%**",
+                ephemeral=False
+            )
+
+        except PermissionError as e:
+            await interaction.response.send_message(f"❌ {e}", ephemeral=True)
+        except ValueError as e:
+            await interaction.response.send_message(f"⚠️ {e}", ephemeral=True)
+        except Exception as e:
+            self.logger.error(f"Ошибка в команде volume: {e}\ntraceback: {traceback.format_exc()}")
+            await interaction.response.send_message("❌ Не удалось изменить громкость.", ephemeral=True)
+
 
 
 async def setup(bot):
