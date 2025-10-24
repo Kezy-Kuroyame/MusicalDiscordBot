@@ -7,7 +7,6 @@ import os
 import traceback
 
 from dotenv import load_dotenv
-from bot_main.utils.generate.generator import Generator
 from bot_main.utils.changes.colorize import Colorize
 
 
@@ -19,7 +18,6 @@ class Fun(commands.Cog):
     def __init__(self, bot):
         self.logger = logging.getLogger("discord-bot")
         self.bot = bot
-        self.generator = Generator(bot)
         self.colorize = Colorize(bot)
 
 
@@ -27,16 +25,6 @@ class Fun(commands.Cog):
     async def hello(self, interaction: discord.Interaction):
         self.logger.debug("Command - Hello")
         await interaction.response.send_message(f"ахахаха ШМАЛЬ, {interaction.user.mention}")
-
-
-    @app_commands.command(name="image", description="Создаёт изображение с бароном Емельяновым")
-    async def image(self, interaction: discord.Interaction, prompt: str, reference: discord.Attachment):
-        self.logger.debug("Command - Image")
-        await interaction.response.defer(thinking=True)
-        try:
-            await self.generator.generate(interaction, prompt, reference)
-        except Exception as e:
-            self.logger.error(f"Команда play вызвала ошибку: {e}\ntraceback: {traceback.format_exc()}")
 
 
     @commands.Cog.listener()
