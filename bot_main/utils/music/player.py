@@ -62,6 +62,10 @@ class Player:
             self.queues[guild_id] = deque()
         self.queues[guild_id].append(track_info)
 
+    # ------------------------------
+    # Гуфи а настройки
+    # ------------------------------
+
     def set_volume(self, interaction: discord.Interaction, level: int):
         #Изменяет громкость если это позволяет роль пользователя
         has_role = any(role.id == MUSIC_ROLE_ID for role in interaction.user.roles)
@@ -81,6 +85,29 @@ class Player:
         if hasattr(self, "current_source") and self.current_source:
             self.current_source.volume = self.volume
             self.logger.debug(f"Текущий трек громкость изменена на {self.volume}")
+
+
+    async def set_bass(self, interaction: discord.Interaction, level: int):
+        # Проверяем диапазон уровня баса
+        if not -10 <= level <= 20:
+            raise ValueError("Уровень баса должен быть от -10 до 20")
+
+        """Изменяет усиление басов (от -10 до 20 дБ)"""
+        self.logger.debug(f"set_bass called with level={level}")
+
+        voice_client = await join_voice_channel(interaction, self.bot)
+
+        if not voice_client:
+            return
+
+        # Проверяем права (только с ролью MUSIC_ROLE_ID)
+        has_role = any(role.id == MUSIC_ROLE_ID for role in interaction.user.roles)
+        if not has_role:
+            self.logger.warning(
+                f"{interaction.user} попытался изменить бас без роли MUSIC_ROLE_ID"
+            )
+            raise PermissionError("Недостаточно прав для изменения баса")
+
 
 
     # ------------------------------
