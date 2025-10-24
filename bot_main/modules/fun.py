@@ -8,7 +8,7 @@ import traceback
 
 from dotenv import load_dotenv
 from bot_main.utils.generate.generator import Generator
-from bot_main.utils.colorize.colorize import Colorize
+from bot_main.utils.changes.colorize import Colorize
 
 
 load_dotenv()

@@ -32,7 +32,6 @@ class Player:
             'format': 'bestaudio/best',
             "writesubtitles": False,  # не загружать субтитры
             "writeautomaticsub": False,
-            'extact_flat': True
         }
         self.start_time = None
         self.ydl = yt_dlp.YoutubeDL(self.ydl_opts)
