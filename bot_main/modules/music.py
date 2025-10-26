@@ -106,24 +106,23 @@ class Music(commands.Cog):
             self.logger.error(f"Ошибка в команде volume: {e}\ntraceback: {traceback.format_exc()}")
             await interaction.response.send_message("❌ Не удалось изменить громкость.", ephemeral=True)
 
-    @app_commands.command(name="bass", description="Добавить усиление баса для музыки")
-    @app_commands.describe(level="Уровень усиления баса (-10 до 20)")
-    async def set_bass(self, interaction: discord.Interaction, level: int):
+    @app_commands.command(name="bass", description="Изменить уровень басса (-10 до 20 дБ) [стандарт: 0]")
+    async def bass(self, interaction: discord.Interaction, level: int):
+        self.logger.debug(f"Команда bass, уровень: {level} дБ")
         try:
-            # Устанавливаем бас в Player
-            await self.player.set_bass(interaction, level)
+            self.player.set_bass(interaction, level)
+            await interaction.response.send_message(
+                f"🎧 Басс установлен на **{level} дБ**",
+                ephemeral=False
+            )
 
-            # Уведомляем пользователя
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"🎚 Бас установлен на уровень **{level}**")
-
+        except PermissionError as e:
+            await interaction.response.send_message(f"❌ {e}", ephemeral=True)
         except ValueError as e:
-            if not interaction.response.is_done():
-                await interaction.response.send_message( f"⚠️ {e}", ephemeral=True )
+            await interaction.response.send_message(f"⚠️ {e}", ephemeral=True)
         except Exception as e:
-            self.logger.error(f"Ошибка в команде set_bass: {e}")
-            if not interaction.response.is_done():
-                await interaction.response.send_message("❌ Не удалось изменить бас", ephemeral=True)
+            self.logger.error(f"Ошибка в команде bass: {e}\ntraceback: {traceback.format_exc()}")
+            await interaction.response.send_message("❌ Не удалось изменить уровень басса.", ephemeral=True)
 
 
 async def setup(bot):

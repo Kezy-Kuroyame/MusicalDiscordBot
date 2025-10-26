@@ -46,6 +46,7 @@ class Player:
         self.repeated_track = None
         self.volume = 0.05
         self.current_source = None
+        self.bass_level = 0  # значение от -10 до +20 дБ
 
     # ------------------------------
     # Очередь
@@ -86,29 +87,19 @@ class Player:
             self.current_source.volume = self.volume
             self.logger.debug(f"Текущий трек громкость изменена на {self.volume}")
 
-
-    async def set_bass(self, interaction: discord.Interaction, level: int):
-        # Проверяем диапазон уровня баса
-        if not -10 <= level <= 20:
-            raise ValueError("Уровень баса должен быть от -10 до 20")
-
-        """Изменяет усиление басов (от -10 до 20 дБ)"""
-        self.logger.debug(f"set_bass called with level={level}")
-
-        voice_client = await join_voice_channel(interaction, self.bot)
-
-        if not voice_client:
-            return
-
-        # Проверяем права (только с ролью MUSIC_ROLE_ID)
+    def set_bass(self, interaction: discord.Interaction, level: int):
+        # Проверка роли
         has_role = any(role.id == MUSIC_ROLE_ID for role in interaction.user.roles)
         if not has_role:
-            self.logger.warning(
-                f"{interaction.user} попытался изменить бас без роли MUSIC_ROLE_ID"
-            )
-            raise PermissionError("Недостаточно прав для изменения баса")
+            self.logger.warning(f"{interaction.user} попытался изменить бас без роли MUSIC_ROLE")
+            raise PermissionError("Недостаточно прав для изменения басса")
 
+        # Проверка диапазона
+        if not -10 <= level <= 20:
+            raise ValueError("Басс должен быть в диапазоне от -10 до 20 дБ")
 
+        self.bass_level = level
+        self.logger.info(f"Басс изменён пользователем {interaction.user}. Уровень: {level} дБ")
 
     # ------------------------------
     # Быстрый поиск для выбора трека
@@ -235,7 +226,7 @@ class Player:
 
         ffmpeg_opts = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn'
+            'options': f'-vn -af "bass=g={self.bass_level}"'
         }
 
         source = discord.FFmpegPCMAudio(track_info['url'], **ffmpeg_opts)
