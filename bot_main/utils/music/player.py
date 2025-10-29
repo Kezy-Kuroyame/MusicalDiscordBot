@@ -1,17 +1,16 @@
 import asyncio
 import logging
 import os
-import queue
-import traceback
 import time
+import traceback
 from collections import deque
-from symtable import Class
 
 import discord
 import yt_dlp
-from discord import app_commands
 from dotenv import load_dotenv
 
+from bot_main.utils.database.db import AsyncSessionLocal
+from bot_main.utils.database.models import TrackHistory
 from bot_main.utils.music import track_select_view
 from bot_main.utils.music.helpers import join_voice_channel, formated_duration
 
@@ -100,6 +99,41 @@ class Player:
 
         self.bass_level = level
         self.logger.info(f"Басс изменён пользователем {interaction.user}. Уровень: {level} дБ")
+
+    async def show_history(self, interaction: discord.Interaction):
+        """Выводит последние 15 треков для гильдии"""
+        try:
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(
+                    TrackHistory.__table__.select()
+                    .where(TrackHistory.guild_id == interaction.guild.id)
+                    .order_by(TrackHistory.played_at.desc())
+                    .limit(15)
+                )
+                tracks = result.fetchall()
+
+            if not tracks:
+                await interaction.response.send_message("История треков пуста.", ephemeral=True)
+                return
+
+            embed = discord.Embed(
+                title=f"Последние треки в {interaction.guild.name}",
+                color=discord.Color.green()
+            )
+
+            for i, track in enumerate(tracks, 1):
+                user_mention = f"<@{track.user_id}>" if track.user_id else "Неизвестно"
+                embed.add_field(
+                    name=f"{i}. {track.title}",
+                    value=f"[Ссылка]({track.url}) • Played by {user_mention}",
+                    inline=False
+                )
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при выводе истории треков: {e}")
+            await interaction.response.send_message("Не удалось получить историю треков.", ephemeral=True)
 
     # ------------------------------
     # Быстрый поиск для выбора трека
@@ -218,11 +252,31 @@ class Player:
     async def player(self, interaction, voice_client):
 
         self.logger.debug("player")
+        guild_id = interaction.guild.id
+        if guild_id not in self.queues or not self.queues[guild_id]:
+            self.logger.debug("Очередь пуста, нечего воспроизводить")
+            return
         track_info = self.queues[interaction.guild.id][0]
         self.logger.info(f"track_info: {track_info}")
 
         if self.count_played == 0:
             await interaction.channel.send(f"Сейчас ебашит: [{track_info['title']}]({track_info['webpage_url']})")
+
+        # --- сохраняем трек в базу сразу перед воспроизведением ---
+        try:
+            async with AsyncSessionLocal() as session:
+                async with session.begin():
+                    history = TrackHistory(
+                        user_id=interaction.user.id,
+                        guild_id=guild_id,
+                        title=track_info['title'],
+                        url=track_info['webpage_url'],
+                        duration=track_info.get('duration')
+                    )
+                    session.add(history)
+            self.logger.info(f"Трек '{track_info['title']}' сохранён в историю")
+        except Exception as e:
+            self.logger.error(f"Не удалось сохранить трек в базу: {e}")
 
         ffmpeg_opts = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -230,7 +284,6 @@ class Player:
         }
 
         source = discord.FFmpegPCMAudio(track_info['url'], **ffmpeg_opts)
-        #source = discord.PCMVolumeTransformer(source, volume=0.05)
         source = discord.PCMVolumeTransformer(source, volume=self.volume)
         self.current_source = source  # сохраняем источник, чтобы потом менять громкость
 

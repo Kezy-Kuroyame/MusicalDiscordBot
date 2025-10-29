@@ -124,6 +124,15 @@ class Music(commands.Cog):
             self.logger.error(f"Ошибка в команде bass: {e}\ntraceback: {traceback.format_exc()}")
             await interaction.response.send_message("❌ Не удалось изменить уровень басса.", ephemeral=True)
 
+    @app_commands.command(name="history", description="Показать последние 15 треков")
+    async def history(self, interaction: discord.Interaction):
+        self.logger.debug("Вызов команды /history")
+        try:
+            await self.player.show_history(interaction)
+        except Exception as e:
+            self.logger.error(f"Ошибка при вызове /history: {e}")
+            await interaction.response.send_message("Не удалось получить историю треков.", ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(Music(bot))

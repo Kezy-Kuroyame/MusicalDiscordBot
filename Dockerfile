@@ -14,6 +14,6 @@ COPY --from=builder /install /usr/local
 COPY . /app
 
 # Устанавливаем FFmpeg + Opus + dev пакеты
-RUN apt-get update && apt-get install -y ffmpeg libopus-dev build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ffmpeg libopus-dev build-essential libffi-dev libssl-dev && rm -rf /var/lib/apt/lists/*
 
 CMD ["python", "main.py"]
