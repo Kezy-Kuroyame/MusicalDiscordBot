@@ -89,6 +89,9 @@ async def setup_hook():
     await init_db()                             # Инициализация базы данных
     await load_modules()                        # Загружаем модули
     guild = bot.get_guild(BIOSWIN_GUILD_ID)     # Синхронизация команд
-    logger.info(f"commands: {await bot.tree.sync(guild=guild)}")
+
+    synced = await bot.tree.sync(guild=guild)
+    command_names = [command.name for command in synced]
+    logger.info(f"commands: {command_names}")
 
 bot.run(TOKEN)

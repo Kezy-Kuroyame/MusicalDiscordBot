@@ -200,7 +200,11 @@ class Player:
 
         def _extract():
             info = self.ydl.extract_info(f"{query}", download=False)
-            self.logger.info(info)
+            self.logger.info({
+                "title": info.get("title"),
+                # "url": info.get("url"), #URL проигрывателя, очень длинная строка
+                "duration": info.get("duration"),
+            })
             return {
                 "title": info.get("title"),
                 "url": info.get("url"),
@@ -257,7 +261,7 @@ class Player:
             self.logger.debug("Очередь пуста, нечего воспроизводить")
             return
         track_info = self.queues[interaction.guild.id][0]
-        self.logger.info(f"track_info: {track_info}")
+        self.logger.info(f"track_info: title={track_info.get('title')}, url={track_info.get('url')}, duration={track_info.get('duration')}")
 
         if self.count_played == 0:
             await interaction.channel.send(f"Сейчас ебашит: [{track_info['title']}]({track_info['webpage_url']})")
