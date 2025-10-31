@@ -129,7 +129,7 @@ class Player:
                     inline=False
                 )
 
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed, ephemeral=False)
 
         except Exception as e:
             self.logger.error(f"Ошибка при выводе истории треков: {e}")
