@@ -1,22 +1,22 @@
-import asyncio
-
 import discord
 from discord.ext import commands
 import os
-import logging
 from dotenv import load_dotenv
 
-# Загружаем .env
+# ---------- Загрузка .env ----------
 load_dotenv()
-
 TOKEN = os.getenv("TOKEN")
 PREFIX = os.getenv("PREFIX", "!")
 BIOSWIN_GUILD_ID = int(os.getenv("BIOSWIN_GUILD_ID", 0))
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///db.sqlite3")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://loogika:32911329@db:5432/bot_db")
 
 import logging
 from logging.handlers import RotatingFileHandler
 
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+# ---------- Логирование ----------
 # Ротация логов: максимум 10 МБ, храним 5 предыдущих файлов
 file_handler = RotatingFileHandler(
     filename="bot_main/bot.log",
@@ -42,6 +42,25 @@ discord_logger.setLevel(logging.WARNING)
 
 logger.info("Starting bot")
 
+# ---------- SQLAlchemy ----------
+from bot_main.utils.database.db import Base  # Base для create_all
+from bot_main.utils.database import models   # noqa: F401  # Импорт моделей, чтобы Base их "увидел"
+
+engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+async def init_db():
+    """Создаём все таблицы при старте бота с логированием"""
+    logger.info("Initializing database...")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database initialized successfully!")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
+
+# ---------- Discord bot ----------
 intents = discord.Intents.default()
 intents.members = True                                              # on_member_join, roles, guild.members
 intents.presences = True                                            # статус онлайн/оффлайн
@@ -65,12 +84,14 @@ async def load_modules():
 async def on_ready():
     logger.info(f"Logged in as {bot.user}")
 
-
 @bot.event
 async def setup_hook():
-    await load_modules()
-    guild = bot.get_guild(BIOSWIN_GUILD_ID)
-    logger.info(f"commands: {await bot.tree.sync(guild=guild)}")
+    await init_db()                             # Инициализация базы данных
+    await load_modules()                        # Загружаем модули
+    guild = bot.get_guild(BIOSWIN_GUILD_ID)     # Синхронизация команд
 
+    synced = await bot.tree.sync(guild=guild)
+    command_names = [command.name for command in synced]
+    logger.info(f"commands: {command_names}")
 
 bot.run(TOKEN)

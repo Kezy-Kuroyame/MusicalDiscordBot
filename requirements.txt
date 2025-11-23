@@ -7,6 +7,11 @@ python-dotenv
 youtube-search-python
 yt-dlp
 requests
+
+SQLAlchemy
+alembic
+asyncpg
+
 torch>=2.1.0
 diffusers>=0.21.0
 transformers>=4.35.0
