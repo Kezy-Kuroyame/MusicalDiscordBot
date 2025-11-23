@@ -106,6 +106,32 @@ class Music(commands.Cog):
             self.logger.error(f"Ошибка в команде volume: {e}\ntraceback: {traceback.format_exc()}")
             await interaction.response.send_message("❌ Не удалось изменить громкость.", ephemeral=True)
 
+    @app_commands.command(name="bass", description="Изменить уровень басса (-10 до 20 дБ) [стандарт: 0]")
+    async def bass(self, interaction: discord.Interaction, level: int):
+        self.logger.debug(f"Команда bass, уровень: {level} дБ")
+        try:
+            self.player.set_bass(interaction, level)
+            await interaction.response.send_message(
+                f"🎧 Басс установлен на **{level} дБ**",
+                ephemeral=False
+            )
+
+        except PermissionError as e:
+            await interaction.response.send_message(f"❌ {e}", ephemeral=True)
+        except ValueError as e:
+            await interaction.response.send_message(f"⚠️ {e}", ephemeral=True)
+        except Exception as e:
+            self.logger.error(f"Ошибка в команде bass: {e}\ntraceback: {traceback.format_exc()}")
+            await interaction.response.send_message("❌ Не удалось изменить уровень басса.", ephemeral=True)
+
+    @app_commands.command(name="history", description="Показать последние 15 треков")
+    async def history(self, interaction: discord.Interaction):
+        self.logger.debug("Вызов команды /history")
+        try:
+            await self.player.show_history(interaction)
+        except Exception as e:
+            self.logger.error(f"Ошибка при вызове /history: {e}")
+            await interaction.response.send_message("Не удалось получить историю треков.", ephemeral=True)
 
 
 async def setup(bot):
