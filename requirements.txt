@@ -11,10 +11,3 @@ requests
 SQLAlchemy
 alembic
 asyncpg
-
-torch>=2.1.0
-diffusers>=0.21.0
-transformers>=4.35.0
-accelerate>=0.23.0
-safetensors>=0.3.2
-Pillow>=10.0.0

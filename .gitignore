@@ -27,3 +27,5 @@ Thumbs.db
 # --- Secrets ---
 secrets/
 .env
+
+cookies.txt
